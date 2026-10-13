@@ -4,14 +4,19 @@ export class AudioSystem {
     this.volume = Number(localStorage.getItem('ddh-volume') ?? 0.35);
     this.muted = localStorage.getItem('ddh-muted') === 'true'; this.context = null; this.note = 0; this.lastBeat = 0;
   }
-  async unlock() {
+  unlock() {
+    try {
     if (!this.context) {
       const Context = window.AudioContext || window.webkitAudioContext;
       if (!Context) return;
-      this.context = new Context(); this.master = this.context.createGain(); this.master.connect(this.context.destination); this.setVolume(this.volume);
+      const context = new Context(),master=context.createGain();master.connect(context.destination);
+      this.context=context;this.master=master;this.setVolume(this.volume);
       this.musicTimer = setInterval(() => this.music(), 550);
     }
-    try { await this.context.resume(); } catch { /* a later user gesture can resume */ }
+    // Resume only after a user gesture, but never make gameplay await it.
+    // Safari can leave this promise pending while audio is interrupted.
+    this.context.resume().catch(()=>{});
+    } catch { /* Sound is optional; another gesture can retry. */ }
   }
   setVolume(v) { this.volume = v; localStorage.setItem('ddh-volume', String(v)); if (this.master) this.master.gain.setTargetAtTime(this.muted ? 0 : v, this.context.currentTime, 0.06); }
   toggle() { this.muted = !this.muted; localStorage.setItem('ddh-muted', String(this.muted)); this.setVolume(this.volume); }

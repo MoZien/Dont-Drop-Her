@@ -1,3 +1,5 @@
+import { cameraMovement } from '../shared/math.js';
+
 export class Input {
   constructor(canvas, camera, onAction) {
     this.camera = camera; this.onAction = onAction; this.keys = new Set(); this.touch = { x: 0, z: 0, jump: false, balance: false };
@@ -59,8 +61,7 @@ export class Input {
     const k = this.keys;
     const x = this.touch.x + Number(k.has('KeyD') || k.has('ArrowRight')) - Number(k.has('KeyA') || k.has('ArrowLeft'));
     const z = this.touch.z + Number(k.has('KeyW') || k.has('ArrowUp')) - Number(k.has('KeyS') || k.has('ArrowDown'));
-    const yaw = this.camera.yaw, c = Math.cos(yaw), s = Math.sin(yaw), magnitude = Math.max(1, Math.hypot(x, z));
-    return { x: (x*c - z*s) / magnitude, z: (z*c + x*s) / magnitude,
+    return { ...cameraMovement(x,z,this.camera.yaw),
       jump: this.touch.jump || k.has('Space'), balance: this.touch.balance || k.has('ShiftLeft') || k.has('ShiftRight') };
   }
 }
