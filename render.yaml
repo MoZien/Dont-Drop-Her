@@ -1,0 +1,18 @@
+# One instance is required: rooms and authoritative Rapier worlds live in memory.
+services:
+  - type: web
+    name: dont-drop-her
+    runtime: node
+    plan: free
+    region: frankfurt
+    branch: main
+    numInstances: 1
+    autoDeployTrigger: commit
+    buildCommand: npm ci --include=dev && npm run build
+    startCommand: npm start
+    healthCheckPath: /health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: NODE_VERSION
+        value: "24"
