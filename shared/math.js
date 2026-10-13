@@ -18,3 +18,7 @@ export function sanitizeInput(raw = {}) {
   return { x, z, jump: raw.jump === true, balance: raw.balance === true };
 }
 export const idleInput = () => ({ x: 0, z: 0, jump: false, balance: false });
+export function cameraMovement(x, z, yaw) {
+  const c=Math.cos(yaw),s=Math.sin(yaw),magnitude=Math.max(1,Math.hypot(x,z));
+  return {x:(-x*c-z*s)/magnitude,z:(z*c-x*s)/magnitude};
+}
