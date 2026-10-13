@@ -46,6 +46,7 @@ HTTPS and WebSockets terminate at Render. Express and Socket.IO share one HTTP l
 git rev-parse HEAD
 curl https://ACTUAL-SERVICE.onrender.com/health
 GAME_URL=https://ACTUAL-SERVICE.onrender.com npm run test:e2e
+node scripts/verify-campaign.mjs https://ACTUAL-SERVICE.onrender.com
 ```
 
 On PowerShell:
