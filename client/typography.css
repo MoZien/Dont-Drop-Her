@@ -1,0 +1,2 @@
+/* System typography stays local and lightweight, without a font CDN. */
+html{font-optical-sizing:auto;-webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility}
