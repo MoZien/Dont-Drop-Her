@@ -12,19 +12,20 @@ try {
   const network=new Network();
   const ui=new UI(root,network,audio,world);
   const input=new Input(world.canvas,world.rig,action=> {if(action==='pause'&&root.querySelector('.modal-backdrop'))ui.action('close-modal');else if(action==='pause'&&network.room)ui.action('pause');else if(action==='grab')network.request('game:grab');});
-  ui.onScreen=screen=> {input.enabled=screen==='playing';if(!input.enabled)input.reset();input.bindControls(root);};
+  ui.onScreen=screen=> {input.enabled=screen==='playing'&&!root.querySelector('.modal-backdrop');input.reset();input.bindControls(root);network.input(input.sample());};
   world.onContextLost=()=>ui.toast('The graphics paused. If they do not return, refresh to reconnect to your room.');
-  let last=performance.now(),lastSend=0,lastTick=0,previousLevel=-1,lastEvent=0,lastCelebration=0;
+  // Input delivery must not wait for expensive mobile GPU frames.
+  setInterval(()=>network.input(input.sample()),1000/30);
+  let last=performance.now(),lastTick=0,previousLevel=-1,lastEvent=0,lastCelebration=0;
   network.on('state',state=>{
     if(state.level!==previousLevel || state.tick<lastTick){lastEvent=0;previousLevel=state.level;}lastTick=state.tick;
     for(const event of state.events){if(event.id<=lastEvent)continue;lastEvent=event.id;audio.event(event.type);world.event(event);if(event.message&&!['break','complete','jump'].includes(event.type))ui.toast(event.message);}
   });
   const loop=now=>{
-    requestAnimationFrame(loop);const dt=Math.min(.05,(now-last)/1000);last=now;
+    requestAnimationFrame(loop);const dt=Math.min(.1,(now-last)/1000);last=now;
     const state=network.interpolate();const phase=network.room?.phase;
     const menu=!phase||['lobby','countdown'].includes(phase)||ui.screen==='setup';
     world.render(menu?null:state,dt,now/1000,menu);
-    if(now-lastSend>1000/30){lastSend=now;network.input(input.sample());}
     if(phase==='victory'&&now-lastCelebration>2000){lastCelebration=now;world.particles.burst(world.heart.group.position,'complete');}
     audio.update(phase==='playing'?state:null,now);ui.tick();
   };

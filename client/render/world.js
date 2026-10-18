@@ -17,9 +17,11 @@ export class World {
     this.sun.shadow.camera.near=1;this.sun.shadow.camera.far=38;this.sun.shadow.bias=-.0005;this.sun.shadow.normalBias=.035;this.scene.add(this.sun,this.sun.target);
     const pmrem=new THREE.PMREMGenerator(this.renderer),room=new RoomEnvironment();this.envMap=pmrem.fromScene(room,.04);this.scene.environment=this.envMap.texture;this.scene.environmentIntensity=.3;room.dispose();pmrem.dispose();
     this.heart=new GlassHeart();this.scene.add(this.heart.group,this.heart.shadow);
+    this.playerMarker=new THREE.Mesh(new THREE.RingGeometry(.42,.5,32),new THREE.MeshBasicMaterial({color:'#fff5c4',transparent:true,opacity:.85,depthWrite:false,side:THREE.DoubleSide}));
+    this.playerMarker.rotation.x=-Math.PI/2;this.scene.add(this.playerMarker);this.localPlayer=0;
     this.particles=new Particles(this.scene);this.characters=[];this.level=-1;this.loadLevel(0);
     this.setProfiles([{name:'Oliver',color:'#71bfc1',appearance:'boy'},{name:'Juniper',color:'#ee789a',appearance:'girl'}]);
-    this.frames=0;this.frameTime=0;this.quality=localStorage.getItem('ddh-quality')||'auto';this.applyQuality();
+    this.frames=0;this.frameTime=0;this.autoLow=false;this.quality=localStorage.getItem('ddh-quality')||'auto';this.applyQuality();
     window.addEventListener('resize',()=>this.resize());this.resize();
     canvas.addEventListener('webglcontextlost',e=>{e.preventDefault();this.onContextLost?.();});
     canvas.addEventListener('webglcontextrestored',()=>location.reload());
@@ -30,10 +32,16 @@ export class World {
     const key=JSON.stringify(profiles);if(this.profileKey===key)return;this.profileKey=key;
     this.characters.forEach(c=>{this.scene.remove(c.group);c.dispose();});this.characters=profiles.map(p=>new Character(p));this.characters.forEach(c=>this.scene.add(c.group));
   }
-  setQuality(value) {this.quality=value;localStorage.setItem('ddh-quality',value);this.applyQuality();}
+  setQuality(value) {this.quality=value;this.autoLow=false;this.frames=0;this.frameTime=0;localStorage.setItem('ddh-quality',value);this.applyQuality();}
   applyQuality() {
-    const low=this.quality==='low';this.renderer.setPixelRatio(Math.min(devicePixelRatio,low?1:this.quality==='high'?2:1.6));
-    this.renderer.shadowMap.enabled=!low;this.heart.glass.transmission=low?.15:.65;
+    const low=this.quality==='low'||this.autoLow;
+    const mobile=matchMedia('(pointer: coarse)').matches;
+    this.renderer.setPixelRatio(Math.min(devicePixelRatio,low?1:this.quality==='high'?2:mobile?1.25:1.6));
+    this.renderer.shadowMap.enabled=!low;
+    // Any nonzero transmission causes an additional scene render. Omit that
+    // pass on low quality while retaining the polished glass highlights.
+    this.heart.glass.transmission=low?0:.65;this.heart.glass.opacity=low?1:.92;this.heart.glass.needsUpdate=true;
+    this.heart.shine.visible=!low;
     this.renderer.setSize(innerWidth,innerHeight);
   }
   render(state,dt,time,menu=false) {
@@ -42,6 +50,8 @@ export class World {
       heart:{position:{x:0,y:1.8+Math.sin(time*1.4)*.025,z:2},rotation:{x:0,y:0,z:Math.sin(time)*.012,w:1}}};
     this.loadLevel(state.level);this.heart.update(state,time);this.heart.group.updateMatrixWorld(true);
     this.characters.forEach((c,i)=> {const handle=this.heart.handles[i].getWorldPosition(new THREE.Vector3());c.update(state.players[i],time,state,handle,menu);});
+    const mine=state.players[this.localPlayer];this.playerMarker.visible=!menu&&!!mine?.grounded;
+    if(mine)this.playerMarker.position.set(mine.position.x,mine.position.y-.68,mine.position.z);
     this.environment.update(state,time,dt);this.particles.update(dt,time);this.rig.update(state,dt,menu);
     const z=state.heart.position.z;this.sun.position.set(-8,14,z-6);this.sun.target.position.set(0,0,z);
     this.renderer.render(this.scene,this.camera);
@@ -50,7 +60,7 @@ export class World {
     this.canvas.dataset.renderedView=menu?'menu':'game';
     this.canvas.dataset.visibleTriangles=String(this.renderer.info.render.triangles);
     this.canvas.dataset.cameraFinite=String(this.camera.position.toArray().every(Number.isFinite));
-    if(this.quality==='auto'){this.frameTime+=dt;this.frames++;if(this.frames>180){if(this.frameTime/this.frames>.035){this.renderer.setPixelRatio(1);this.renderer.shadowMap.enabled=false;this.heart.glass.transmission=.15;}this.frames=0;this.frameTime=0;}}
+    if(this.quality==='auto'&&!this.autoLow){this.frameTime+=dt;this.frames++;if(this.frameTime>3&&this.frames>12){if(this.frameTime/this.frames>.035){this.autoLow=true;this.applyQuality();}this.frames=0;this.frameTime=0;}}
   }
   event(event) { if(['break','checkpoint','gate','complete'].includes(event.type))this.particles.burst(event.position||this.heart.group.position,event.type); }
 }

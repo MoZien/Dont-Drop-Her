@@ -92,6 +92,25 @@ export class Character {
       return { side, sleeve, upper: limb(this.skin,this.root), lower:limb(this.skin,this.root), hand:ball(this.skin,[.1,.11,.1],[side*.5,.7,0],this.root) };
     });
     this.phase = Math.random()*6;
+    // Rigid facial and clothing details can share draw calls while the mouth,
+    // eyebrows, head, arms and legs retain their independent animation.
+    this.batchParts(this.head, new Set([this.mouth,...this.brows]));
+    this.batchParts(this.root, new Set([this.body,...this.arms.flatMap(a=>[a.upper,a.lower,a.hand])]));
+  }
+  batchParts(parent, excluded) {
+    const groups = new Map();
+    for(const part of parent.children) {
+      if(!part.isMesh || excluded.has(part) || !part.geometry.userData.shared)continue;
+      const key=part.geometry.uuid+part.material.uuid;
+      if(!groups.has(key))groups.set(key,[]);groups.get(key).push(part);
+    }
+    for(const parts of groups.values()) {
+      if(parts.length<3)continue;
+      const batch=new THREE.InstancedMesh(parts[0].geometry,parts[0].material,parts.length);
+      batch.castShadow=true;batch.receiveShadow=true;
+      parts.forEach((part,i)=>{part.updateMatrix();batch.setMatrixAt(i,part.matrix);part.removeFromParent();});
+      batch.computeBoundingSphere();parent.add(batch);
+    }
   }
   update(player, time, state, target = null, menu = false) {
     const speed = menu ? 0 : Math.hypot(player.velocity.x, player.velocity.z);
@@ -104,7 +123,7 @@ export class Character {
     this.root.rotation.x = player.grounded===false ? player.position.y<.35?-.85:.14 : 0;
     this.head.rotation.z = Math.sin(time*1.8+this.phase)*.035;
     this.head.scale.y = Math.sin(time*.7+this.phase)>0.994 ? .96 : 1;
-    this.mouth.scale.y = state.balance > .55 ? 2.4 : 1;
+    this.mouth.scale.y = .028 * (state.balance > .55 ? 2.4 : 1);
     this.brows.forEach((b,i)=> b.rotation.z = state.balance > .55 ? (i ? -1:1)*.25 : (i ? 1:-1)*.08);
     if (state.status === 'complete') { this.root.position.y = Math.abs(Math.sin(time*5))*.2; this.root.rotation.y = Math.sin(time*2)*.12; }
     this.group.updateMatrixWorld(true);
@@ -124,7 +143,7 @@ export class Character {
       arm.hand.position.copy(hand);
     });
   }
-  dispose() {this.group.traverse(o=>{if(o.geometry&&!o.geometry.userData.shared)o.geometry.dispose();});}
+  dispose() {this.group.traverse(o=>{if(o.isInstancedMesh)o.dispose();if(o.geometry&&!o.geometry.userData.shared)o.geometry.dispose();});}
 }
 
 export class GlassHeart {

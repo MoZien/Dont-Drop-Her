@@ -2,12 +2,72 @@ import test, { before } from 'node:test';
 import assert from 'node:assert/strict';
 import { initPhysics, Simulation } from '../server/simulation.js';
 import { LEVELS } from '../shared/levels.js';
-import { idleInput, sanitizeInput } from '../shared/math.js';
+import { idleInput, sanitizeInput, cameraMovement } from '../shared/math.js';
+import * as THREE from 'three';
+import { CameraRig } from '../client/camera.js';
+import { Character } from '../client/render/models.js';
+import { AudioSystem } from '../client/audio.js';
 import { profile, personalize } from '../server/rooms.js';
 import { driveCourse } from './driver.js';
 
 before(async()=>initPhysics());
 const run = (sim, steps, inputs = [idleInput(),idleInput()]) => {for(let i=0;i<steps;i++){inputs.forEach((input,p)=>sim.input(p,input));sim.step();}};
+
+test('keyboard and joystick directions match the actual rendered camera after orbiting',()=>{
+  for(const yaw of [0,.4,Math.PI/2,-.7]) {
+    const camera=new THREE.PerspectiveCamera(),rig=new CameraRig(camera);rig.yaw=yaw;
+    for(let i=0;i<5;i++)rig.update({heart:{position:{x:0,y:1.8,z:10}}},1,false);
+    camera.updateMatrixWorld();const right=new THREE.Vector3().setFromMatrixColumn(camera.matrixWorld,0).normalize();
+    const forward=camera.getWorldDirection(new THREE.Vector3());forward.y=0;forward.normalize();
+    const moveRight=cameraMovement(1,0,yaw),moveForward=cameraMovement(0,1,yaw);
+    assert.ok(Math.hypot(moveRight.x-right.x,moveRight.z-right.z)<1e-6);
+    assert.ok(Math.hypot(moveForward.x-forward.x,moveForward.z-forward.z)<1e-6);
+    assert.ok(Math.hypot(...Object.values(cameraMovement(1,1,yaw)))<=1.00001);
+  }
+});
+test('controls follow the visible camera throughout an unfinished orbit transition',()=>{
+  const camera=new THREE.PerspectiveCamera(42,1.7),rig=new CameraRig(camera);
+  const state={heart:{position:{x:0,y:1.8,z:2}}};
+  rig.update(state,1);rig.orbit(1.8,0);rig.update(state,1/60);camera.updateMatrixWorld();
+  const right=new THREE.Vector3().setFromMatrixColumn(camera.matrixWorld,0).normalize();
+  const move=cameraMovement(1,0,rig.viewYaw);
+  assert.ok(Math.hypot(move.x-right.x,move.z-right.z)<1e-6);
+  assert.ok(Math.abs(rig.viewYaw-rig.yaw)>.1);
+  rig.reset();assert.equal(rig.yaw,0);
+});
+test('portrait camera framing keeps both carriers inside the central play area',()=>{
+  for(const aspect of [390/844,390/664,844/390,1280/720]){
+    const camera=new THREE.PerspectiveCamera(42,aspect),rig=new CameraRig(camera);
+    for(let i=0;i<10;i++)rig.update({heart:{position:{x:0,y:1.8,z:2}}},1);
+    camera.updateMatrixWorld();
+    for(const x of [-1.65,1.65])for(const y of [0,2.1]){
+      const screen=new THREE.Vector3(x,y,2).project(camera);
+      assert.ok(Math.abs(screen.x)<.85,`carrier clipped at aspect ${aspect}`);
+      assert.ok(Math.abs(screen.y)<.6,`carrier hidden behind the HUD or controls at ${aspect}`);
+    }
+  }
+});
+test('character facial reactions retain the small mouth geometry without vertical spikes',()=>{
+  for(const appearance of ['boy','girl']){
+    const character=new Character({appearance,color:'#71bfc1'});
+    const player={position:{x:-1.12,y:.7,z:2},velocity:{x:0,y:0,z:0},grabbing:false,grounded:true,yaw:0};
+    for(const balance of [0,.8]){
+      character.update(player,1,{status:'playing',balance,heart:{position:{x:0,y:1.8,z:2}}});
+      character.group.updateMatrixWorld(true);
+      const bounds=new THREE.Box3().setFromObject(character.mouth);
+      assert.ok(bounds.max.y-bounds.min.y<.15);
+      assert.ok(bounds.min.y>1&&bounds.max.y<1.5);
+    }
+    character.dispose();
+  }
+});
+test('an unresolved browser audio-resume promise never blocks starting gameplay',()=>{
+  const previousWindow=globalThis.window,previousStorage=Object.getOwnPropertyDescriptor(globalThis,'localStorage');let audio;
+  Object.defineProperty(globalThis,'localStorage',{configurable:true,value:{getItem:()=>null,setItem:()=>{}}});
+  globalThis.window={AudioContext:class { constructor(){this.currentTime=0;this.state='suspended';this.destination={};}createGain(){return{connect(){},gain:{setTargetAtTime(){}}};}resume(){return new Promise(()=>{});} }};
+  try {audio=new AudioSystem();assert.equal(audio.unlock(),undefined);assert.ok(audio.context);}
+  finally {clearInterval(audio?.musicTimer);globalThis.window=previousWindow;if(previousStorage)Object.defineProperty(globalThis,'localStorage',previousStorage);else delete globalThis.localStorage;}
+});
 
 test('inputs are finite, normalized, and cannot set health or progress',()=>{
   assert.deepEqual(sanitizeInput({x:Infinity,z:NaN,health:0,checkpoint:4,jump:'yes'}),idleInput());
