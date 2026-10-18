@@ -38,7 +38,7 @@ The earlier full campaign probe over the public Render connection also completed
 
 ## Deployment behavior and evidence limits
 
-- Auto-Deploy is configured as On Commit. The Render GitHub repository picker currently exposes only the older repository; the new repository needs to be added to that installation for automatic updates. This release was explicitly deployed and verified. Do not treat the Auto-Deploy setting alone as proof that a later push deployed.
+- Auto-Deploy is configured as On Commit for `main`. The Render GitHub installation now includes selected access to `MoZien/Dont-Drop-Her`. The existing repository selection remains intact. Verify each update by matching the automatic deploy's source commit and `/health` with GitHub main; the configuration setting alone is not deployment evidence.
 - WebKit mobile emulation is not a physical iPhone Safari performance benchmark. No guaranteed 60 FPS or testing on two separate cellular networks is claimed.
 - Rooms and personalization are transient memory in one server process; restarting or deploying ends existing rooms.
 - Screenshots and QA-only tools are ignored under `artifacts/` and are not part of the public application.
