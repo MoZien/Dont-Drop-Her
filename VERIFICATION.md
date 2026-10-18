@@ -29,7 +29,25 @@ Render service: `srv-db72orc9v7es73a9kurg`, My Workspace, Frankfurt, Free, one i
 
 ## Public release verification
 
-Version 1.1 reached Live through automatic deployment. The public Chromium / iPhone WebKit suite passed all four cases, including opening the first arch, waiting without losing progress, and restarting at its saved checkpoint. The full eight-chapter public campaign probe is pending; this section will be updated with its observed result before final delivery.
+Version 1.1 reached **Live** through automatic deployment. The public Chromium / iPhone WebKit suite passed **all four cases** on the final client runtime, including forward-facing characters, the clear camera view, opening the arch, waiting without losing progress, and restarting at its saved checkpoint. No JavaScript page errors were observed.
+
+The real-network campaign probe returned **PASS: all eight chapters** and **10,130 matching authoritative snapshots** between two independent clients. Each chapter finished with all three checkpoints. The probe used ordinary movement/grab intentions and had no teleport, health, progress, or level-write access.
+
+| Chapter | Active seconds | Heart at finish | Falls / checkpoint recoveries |
+| --- | ---: | ---: | ---: |
+| Love Garden | 37 | 100% | 0 |
+| Crazy Kitchen | 114 | 100% | 5 |
+| Broken Bridge | 34 | 100% | 0 |
+| Ice of Love | 29 | 100% | 0 |
+| Heart Castle | 36 | 100% | 0 |
+| Clockwork Carnival | 49 | 100% | 0 |
+| Volcano Vows | 119 | 100% | 6 |
+| Starlight Observatory | 49 | 94.8% | 0 |
+
+GitHub Actions passed 34 automated tests, the production build, and all four browser cases for the validated runtime: https://github.com/MoZien/Dont-Drop-Her/actions/runs/39155023605
+
+The final documentation and QA-driver normalization update does not alter the client/server runtime tested above. The QA driver now applies the same input sanitizer as the live network path; all 34 local tests also pass with this normalization. All 39 source files are checked against the published Git tree, and the public health commit is checked against main after deployment.
+
 
 ## Deployment and limits
 

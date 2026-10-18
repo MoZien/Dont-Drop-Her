@@ -66,7 +66,7 @@ Check the following:
 - `/health` returns 200 and its `commit` matches the pushed main commit / Render deploy.
 - The 3D menu renders without a fallback or console error.
 - Two independent browser contexts create/join a room, ready up, move both characters, see the same health, pause, and detect a disconnect.
-- Checkpoints, shattering, and all five chapter transitions work; the server input-only campaign test covers course reachability, while final public hands-on testing covers hosting/network conditions.
+- Checkpoints, shattering, and all eight chapter transitions work; the server input-only campaign test covers course reachability, while final public hands-on testing covers hosting/network conditions.
 - The finale shows the private note only to the two room members.
 - On two actual iPhones on different networks, test multi-touch, safe areas, audio unlock, reconnection, and performance.
 

@@ -1,4 +1,5 @@
 import { courseInputs } from './course-pilot.js';
+import { sanitizeInput } from '../shared/math.js';
 
 export function driveCourse(sim,maxSeconds=240) {
   const memory={},trail=[];
@@ -7,7 +8,7 @@ export function driveCourse(sim,maxSeconds=240) {
     if(tick%180===0)trail.push({t:Math.round(sim.time),z:Math.round(state.heart.position.z*10)/10,hp:Math.round(state.health),deaths:state.deaths});
     if(state.status==='complete')return{complete:true,seconds:sim.time,deaths:sim.deaths,trail};
     if(state.status==='playing'){
-      courseInputs(state,sim.level,memory).forEach((input,i)=>sim.input(i,input));
+      courseInputs(state,sim.level,memory).forEach((input,i)=>sim.input(i,sanitizeInput(input)));
       state.players.forEach((p,i)=>{if(!p.grabbing&&Math.hypot(p.position.x-state.heart.position.x,p.position.z-state.heart.position.z)<2.1)sim.grab(i);});
     }
     sim.step();
