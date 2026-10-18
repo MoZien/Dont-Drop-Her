@@ -2,10 +2,12 @@ import express from 'express';
 import helmet from 'helmet';
 import { createServer } from 'node:http';
 import { fileURLToPath } from 'node:url';
+import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { Server } from 'socket.io';
 import { Rooms } from './rooms.js';
 import { initPhysics } from './simulation.js';
+const {version}=JSON.parse(readFileSync(new URL('../package.json',import.meta.url),'utf8'));
 
 export async function createApp({ dev = false, now, tick = true } = {}) {
   await initPhysics();
@@ -30,7 +32,7 @@ export async function createApp({ dev = false, now, tick = true } = {}) {
   const rooms = new Rooms(io, { now });
   io.on('connection', socket => rooms.attach(socket));
   app.get('/health', (req, res) => res.set('Cache-Control', 'no-store').json({ ok: true, game: 'Dont-Drop-Her',
-    version: '1.0.0', commit: process.env.RENDER_GIT_COMMIT || process.env.GIT_COMMIT || 'local', instanceMode: 'single' }));
+    version, commit: process.env.RENDER_GIT_COMMIT || process.env.GIT_COMMIT || 'local', instanceMode: 'single' }));
   let vite;
   if (dev) {
     const { createServer: createVite } = await import('vite');

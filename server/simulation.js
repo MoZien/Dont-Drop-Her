@@ -24,6 +24,7 @@ export class Simulation {
     this.checkpoint = 0;
     this.gateOpen = false;
     this.padCharge = 0;
+    this.padOccupancy = [false,false]; this.padMiss = 0; this.padProtection = false;
     this.status = 'playing';
     this.breakTimer = 0;
     this.balance = 0;
@@ -60,7 +61,7 @@ export class Simulation {
 
   createEnvironment(def, surface) {
     const pose = poseAt(def, 0);
-    const dynamic = !!(def.motion || def.spin || def.sway || def.collapse || def.type === 'timedGate');
+    const dynamic = !!(def.motion || def.spin || def.sway || def.collapse || ['timedGate','geyser'].includes(def.type));
     const descriptor = dynamic ? RAPIER.RigidBodyDesc.kinematicPositionBased() : RAPIER.RigidBodyDesc.fixed();
     const body = this.world.createRigidBody(descriptor.setTranslation(pose.position.x, pose.position.y, pose.position.z)
       .setRotation(pose.rotation));
@@ -90,16 +91,18 @@ export class Simulation {
     const p = player.body.translation();
     for (const env of this.environment) {
       if (!env.surface || !env.collider.isEnabled()) continue;
-      const s = env.body.translation();
-      const inBounds = env.def.spin ? Math.hypot(p.x - s.x, p.z - s.z) < Math.max(env.def.w, env.def.d) / 2 + 0.16
-        : Math.abs(p.x - s.x) < env.def.w / 2 + 0.16 && Math.abs(p.z - s.z) < env.def.d / 2 + 0.16;
-      if (inBounds && Math.abs(p.y - 0.7 - (s.y + env.def.h / 2)) < 0.23) return env;
+      const s = env.body.translation(),q=env.body.rotation(),normal=rotate(vector(0,1,0),q);
+      const height=s.y+env.def.h/(2*normal.y)-(normal.x*(p.x-s.x)+normal.z*(p.z-s.z))/normal.y;
+      const local=rotate(sub(vector(p.x,height,p.z),s),{x:-q.x,y:-q.y,z:-q.z,w:q.w});
+      const inBounds = env.def.spin ? Math.hypot(local.x,local.z) < Math.max(env.def.w, env.def.d) / 2 + 0.32
+        : Math.abs(local.x) < env.def.w / 2 + 0.32 && Math.abs(local.z) < env.def.d / 2 + 0.32;
+      if (inBounds && Math.abs(p.y - 0.7 - height) < 0.23) return env;
     }
     return null;
   }
 
   damage(amount, reason) {
-    if (this.status !== 'playing' || amount < 0.1) return;
+    if (this.status !== 'playing' || !Number.isFinite(amount) || amount <= 0) return;
     const before = this.health;
     this.health = clamp(this.health - amount, 0, 100);
     if (Math.floor(before / 30) !== Math.floor(this.health / 30)) this.emit('crack', reason);
@@ -125,6 +128,7 @@ export class Simulation {
     this.heart.setAngvel(vector(), true);
     this.inputs = [idleInput(), idleInput()];
     this.health = 100; this.balance = 0; this.finishCharge = 0;
+    this.padMiss=0;this.padOccupancy=[false,false];this.padProtection=false;
     this.collapse.clear();
     if (this.checkpoint) this.gateOpen = true;
     this.status = 'playing';
@@ -151,9 +155,11 @@ export class Simulation {
       env.body.setNextKinematicRotation(pose.rotation);
     });
     const heartPosition = this.heart.translation();
-    const heartVelocity = this.heart.linvel();
     const activeInputs=this.inputs.map((input,i)=>this.time-this.lastInput[i]>.3?idleInput():input);
     const bothBalance = activeInputs.every(i => i.balance) && this.players.every(p => p.grabbing);
+    this.padProtection=this.players.every((p,i)=>p.grabbing&&!!this.support(p)
+      &&Math.hypot(p.body.translation().x-this.level.pads[i].x,p.body.translation().z-this.level.pads[i].z)<1.1
+      &&Math.hypot(activeInputs[i].x,activeInputs[i].z)<.15);
     const heavy = this.level.heavy && heartPosition.z > this.level.heavy.from && heartPosition.z < this.level.heavy.to;
     let tension = 0;
     this.players.forEach((player, i) => {
@@ -169,11 +175,12 @@ export class Simulation {
       const slipping = this.level.friction < 0.1 || this.level.slippery?.some(s => Math.abs(position.z - s.z) < s.d / 2);
       const speed = (input.balance ? 2.5 : 4) * (heavy ? 0.85 : 1);
       const acceleration = slipping && !input.balance ? 3 : 13;
-      const movingSupport = support?.dynamic ? support.body.linvel() : vector();
+      const movingSupport = support?.dynamic ? support.body.velocityAtPoint(position) : vector();
+      const belt=support?.def.conveyor || vector();
       player.body.applyImpulse(vector(
-        clamp((input.x * speed + movingSupport.x - velocity.x) * acceleration * DT * 8, -2.7, 2.7),
+        clamp((input.x * speed + movingSupport.x + belt.x*(input.balance?.45:1) - velocity.x) * acceleration * DT * 8, -2.7, 2.7),
         0,
-        clamp((input.z * speed + movingSupport.z - velocity.z) * acceleration * DT * 8, -2.7, 2.7)), true);
+        clamp((input.z * speed + movingSupport.z + belt.z*(input.balance?.45:1) - velocity.z) * acceleration * DT * 8, -2.7, 2.7)), true);
       player.jumpCooldown = Math.max(0, player.jumpCooldown - DT);
       if (input.jump && !player.jumpHeld && player.grounded && !player.jumpCooldown) {
         player.body.applyImpulse(vector(0, 8 * 7.1, 0), true);
@@ -209,10 +216,10 @@ export class Simulation {
       if (player.dangerTime > 4) this.damage(100, 'That rescue needed a little more teamwork.');
       if (player.fallTime > 0.65 || position.y < -7) this.damage(100, 'One very dramatic fall.');
     });
-    if (bothBalance) {
+    if (bothBalance || this.padProtection) {
       const q = this.heart.rotation(), av = this.heart.angvel();
       this.heart.applyTorqueImpulse(vector((-q.x * 40 - av.x * 10) * DT, -av.y * 2 * DT, (-q.z * 40 - av.z * 10) * DT), true);
-      if (tension < 0.55 && this.health < 100) this.health = Math.min(100, this.health + DT * 3);
+      if (tension < 0.55 && this.health < 100 && this.players.every(p=>p.grounded&&Math.hypot(p.body.linvel().x,p.body.linvel().z)<.4)) this.health = Math.min(100, this.health + DT * 3);
     }
     if (this.level.wind) {
       const wind = Math.sin(this.time * 0.83) * this.level.wind;
@@ -220,24 +227,29 @@ export class Simulation {
     }
     const q = this.heart.rotation();
     this.balance = clamp(Math.max(Math.abs(q.x), Math.abs(q.z)) * 1.5 + Math.max(0, tension - 0.25) * 0.5, 0, 1);
-    if (!this.damageCooldown && tension > 1.25) this.damage((tension - 1.25) * DT * (bothBalance ? 4 : 12), 'Easy on the handles!');
-    if (!this.damageCooldown && this.balance > 0.9) this.damage(DT * 6, 'Tilt happens. Try balancing together.');
+    if (!this.damageCooldown && !this.padProtection && tension > 1.25) this.damage((tension - 1.25) * DT * (bothBalance ? 4 : 12), 'Easy on the handles!');
+    if (!this.damageCooldown && !this.padProtection && this.balance > 0.9) this.damage(DT * 6, 'Tilt happens. Try balancing together.');
     this.world.step(this.queue);
     this.queue.drainContactForceEvents(event => {
       if (event.collider1() !== this.heartCollider.handle && event.collider2() !== this.heartCollider.handle) return;
       const force = event.totalForceMagnitude();
-      if (!this.damageCooldown && force > 180) { this.damage(clamp((force - 180) * 0.012, 1, 35), 'Careful! Glass and obstacles do not get along.'); this.damageCooldown = 0.4; }
+      if (!this.damageCooldown && !this.padProtection && force > 180) { this.damage(clamp((force - 180) * 0.012, 1, 35), 'Careful! Glass and obstacles do not get along.'); this.damageCooldown = 0.4; }
     });
     const hp = this.heart.translation();
     if (hp.y < -2.5) this.damage(100, 'Gravity wanted a hug.');
     const bothGrabbing = this.players.every(p => p.grabbing);
-    const onPads = this.players.every((p, i) => {
+    this.padOccupancy = this.players.map((p, i) => {
       const pos = p.body.translation(), pad = this.level.pads[i];
-      return Math.hypot(pos.x - pad.x, pos.z - pad.z) < 0.85 && p.grounded;
+      return Math.hypot(pos.x - pad.x, pos.z - pad.z) < (this.padOccupancy[i]?1.05:.85) && p.grounded;
     });
+    const onPads=this.padOccupancy.every(Boolean);
     if (!this.gateOpen) {
-      this.padCharge = clamp(this.padCharge + (onPads && bothGrabbing ? DT : -DT * 2), 0, 1.15);
-      if (this.padCharge >= 1.15) { this.gateOpen = true; this.emit('gate', 'Two hearts. One perfect timing. The arch is open!'); }
+      this.padMiss=onPads&&bothGrabbing?0:this.padMiss+DT;
+      this.padCharge = clamp(this.padCharge + (onPads && bothGrabbing ? DT : this.padMiss>.4 ? -DT*.6:0), 0, 1.15);
+      if (this.padCharge >= 1.15) {
+        this.gateOpen = true;this.checkpoint=1;this.health=100;this.damageCooldown=1.2;
+        this.emit('gate', 'Arch open. Progress saved! Take your time, then cross together.',{position:hp});
+      }
     }
     if (bothGrabbing && this.gateOpen) {
       const next = this.level.checkpoints[this.checkpoint];
@@ -254,7 +266,7 @@ export class Simulation {
         this.heart.setTranslation(vector(0,1.08,this.level.finish+.5),true);
         this.heart.setRotation({x:0,y:0,z:0,w:1},true);this.heart.setLinvel(vector(),true);this.heart.setAngvel(vector(),true);
         this.players.forEach(p=>{p.grabbing=false;p.body.setLinvel(vector(),true);});
-        this.emit('complete', this.levelIndex === 4 ? 'You carried your love all the way home.' : 'A little teamwork. A lot of heart.');
+        this.emit('complete', this.levelIndex === LEVELS.length-1 ? 'You carried your love all the way home.' : 'A little teamwork. A lot of heart.');
       }
     }
   }
@@ -263,7 +275,7 @@ export class Simulation {
     return {
       tick: this.tick, time: this.time, level: this.levelIndex, status: this.status,
       health: Math.round(this.health * 10) / 10, balance: this.balance, checkpoint: this.checkpoint,
-      gateOpen: this.gateOpen, padCharge: this.padCharge, deaths: this.deaths,
+      gateOpen: this.gateOpen, padCharge: this.padCharge, padOccupancy:this.padOccupancy, deaths: this.deaths,
       players: this.players.map(p => ({ position: p.body.translation(), velocity: p.body.linvel(), yaw: p.yaw,
         grabbing: p.grabbing, grounded: p.grounded })),
       heart: { position: this.heart.translation(), rotation: this.heart.rotation(), velocity: this.heart.linvel() },

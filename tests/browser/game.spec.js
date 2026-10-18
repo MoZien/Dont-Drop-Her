@@ -29,10 +29,14 @@ test('two browsers see the 3D world, join a private room, carry one heart, and p
   await page.getByRole('button',{name:'How to play',exact:true}).click();
   await expect(page.getByRole('dialog')).toContainText('golden ring');
   await page.getByRole('button',{name:'Got it'}).click();
-  const progressBefore=parseFloat(await page.locator('#progress-fill').evaluate(el=>el.style.width));
   await page.keyboard.down('Shift');await partner.keyboard.down('Shift');await page.keyboard.down('w');await partner.keyboard.down('w');
-  await expect.poll(async()=>parseFloat(await page.locator('#progress-fill').evaluate(el=>el.style.width)),{timeout:20000}).toBeGreaterThan(progressBefore+1);
-  await page.keyboard.up('w');await partner.keyboard.up('w');await page.keyboard.up('Shift');await partner.keyboard.up('Shift');
+  await expect.poll(async()=>parseFloat(await page.locator('#progress-fill').evaluate(el=>el.style.width)),{timeout:20000,intervals:[50,100]}).toBeGreaterThan(17.7);
+  await page.keyboard.up('w');await partner.keyboard.up('w');
+  await expect(page.locator('#gate-readout')).toBeHidden({timeout:10000});
+  await expect(page.locator('#checkpoint-text')).toHaveText('Checkpoint 1 / 3');
+  await page.keyboard.up('Shift');await partner.keyboard.up('Shift');
+  await page.waitForTimeout(1500);
+  await expect(partner.locator('#checkpoint-text')).toHaveText('Checkpoint 1 / 3');
   await expect(page.locator('#health-text')).toHaveText('100%');await expect(partner.locator('#health-text')).toHaveText('100%');
   await expect.poll(async()=>Number(await page.locator('#world').getAttribute('data-visible-triangles'))).toBeGreaterThan(100);
   await page.screenshot({path:`artifacts/${testInfo.project.name}-playing.png`});
@@ -58,7 +62,9 @@ test('two browsers see the 3D world, join a private room, carry one heart, and p
     expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
   }
   await page.getByRole('button',{name:'Pause adventure'}).click();await expect(partner.getByRole('heading',{name:'Love can wait.'})).toBeVisible();
-  await partner.getByRole('button',{name:'Back to us'}).click();await expect(page.getByRole('heading',{name:'Love can wait.'})).toHaveCount(0);
+  await page.getByRole('button',{name:'Restart checkpoint together'}).click();await partner.getByRole('button',{name:'Restart checkpoint together'}).click();
+  await expect(page.getByRole('heading',{name:'Love can wait.'})).toHaveCount(0);await expect(page.locator('#checkpoint-text')).toHaveText('Checkpoint 1 / 3');
+  await expect(page.locator('#objective')).toContainText('Arch saved');
   await context.close();await partnerBrowser?.close();await expect(page.getByRole('heading',{name:'Waiting for your person.'})).toBeVisible();
   expect(errors).toEqual([]);
   } finally {if(partnerBrowser?.isConnected())await partnerBrowser.close();}
@@ -66,6 +72,8 @@ test('two browsers see the 3D world, join a private room, carry one heart, and p
 
 test('settings, character customization and help work without a room',async({page})=>{
   const errors=[];page.on('pageerror',e=>errors.push(e.message));await page.addInitScript(()=>localStorage.setItem('ddh-quality','low'));await page.goto('/');
+  await page.getByRole('button',{name:'8 chapters to discover'}).click();await expect(page.locator('.chapter-card')).toHaveCount(8);
+  await expect(page.getByRole('dialog')).toContainText('Volcano Vows');await page.getByRole('button',{name:'Got it'}).click();
   await page.getByRole('button',{name:'Sound & graphics'}).click();await page.getByLabel('GRAPHICS',{exact:true}).selectOption('low');
   await page.getByRole('button',{name:'Got it'}).click();await page.getByRole('button',{name:'Start your story'}).click();
   await page.getByRole('button',{name:'Juniper The brave one'}).click();await page.getByRole('button',{name:'Lavender color'}).click();

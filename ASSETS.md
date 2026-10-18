@@ -4,7 +4,7 @@
 | --- | --- |
 | Oliver and Juniper character models, hair, clothes, facial parts and animation | Original source in `client/render/models.js`; MIT |
 | Glass heart mesh, handles, visual cracks and particles | Original source in `client/render/`; MIT |
-| All five environments, props, trees, flowers, ice and castle | Original procedural geometry in `client/render/environment.js`; MIT |
+| All eight environments, props, trees, flowers, ice, castle, carnival wheels, volcanoes and observatory | Original procedural geometry in `client/render/environment.js`; MIT |
 | Music, heartbeat, glass, movement, wind, water and celebration audio | Original Web Audio synthesis in `client/audio.js`; MIT |
 | UI icons, favicon, layout and styling | Original SVG paths and CSS; MIT |
 | Font rendering | User's system fonts; no redistributed font file |

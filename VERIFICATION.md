@@ -1,44 +1,38 @@
-# Release verification
+# Version 1.1 release verification
 
-Updated: 2026-10-18. Local tests ran on Windows with Node 24.15.0.
+Updated: 2026-10-18. Windows / Node 24.15.0.
 
-## Published game
+Game: https://dont-drop-her.onrender.com
+Source: https://github.com/MoZien/Dont-Drop-Her
+Render service: `srv-db72orc9v7es73a9kurg`, My Workspace, Frankfurt, Free, one instance.
 
-- Game: https://dont-drop-her.onrender.com
-- Repository: https://github.com/MoZien/Dont-Drop-Her
-- Render service: `srv-db72orc9v7es73a9kurg`, My Workspace, Frankfurt, Free, one instance.
-- The control and graphics release reached **Live**. `/health` returned HTTP 200 with the same source commit as GitHub main.
-- All 38 tracked source files matched the published GitHub tree by Git blob hashes. The release identity is available from `/health`; no self-referential commit ID is embedded in this report.
+## Implemented upgrade
 
-## Control and graphics corrections
+- Eight distinct chapters. New chapters: Clockwork Carnival, Volcano Vows, Starlight Observatory.
+- Stronger garden hazards, narrower moving decks, conveyors, offset paths, timed steam vents, light gates and drifting star bridges.
+- Carrying characters face travel instead of facing the camera. Turning is smoothed; feet lift and knees bend; free arms swing and the carrying arm follows the actual physical handle in character-local space.
+- The first arch now saves checkpoint 1 of 3 immediately. Standing on the circles stabilizes the heart. Circle occupancy has hysteresis and brief interruptions retain charge. The HUD exposes both circle states, a charge meter, saved progress and red/green timing hints.
+- Sustained strain accumulates fractional damage. Healing requires both carriers to rest and balance on solid ground, so holding Balance while walking through hazards does not continuously erase damage.
+- Ground support respects surface tilt and the capsule's supported edge. Moving platforms carry players with their actual point velocity.
+- The chapter map previews every world and difficulty. The finale records all eight chapter times and shared falls; replay clears these results.
 
-- Right/left and forward movement follow the rendered camera, including during a smoothed orbit.
-- The camera starts looking straight along the course, widens its framing for portrait phones, and can be reset with R or the camera button.
-- Fixed the facial reaction scale that stretched the mouth into long vertical strips in front of both characters.
-- Input transmission runs independently of rendering. Slow GPU frames no longer delay every movement packet.
-- The joystick has a center dead zone and clears on cancel, lost capture, blur, and screen changes. Multiple action pointers remain independent.
-- Help/settings dialogs disable movement until closed. Audio resume cannot block room or ready buttons.
-- Low quality omits the extra transmission render pass. Automatic quality adapts sooner; rigid facial details share draw calls.
-- A golden ring identifies the local character; the grab button shows whether it will release or grab the heart.
-- A smaller phone HUD, safe-area offsets, and 16px mobile form inputs improve the space available for play and typing.
+## Completed local verification
 
-## Completed automated checks
+- `npm run check`: **33 tests passed**, zero failures, production build succeeded.
+- `npm run test:e2e -- --trace off`: **4 tests passed**, Chromium desktop and iPhone 13 WebKit emulation.
+- Browser clients walked onto the opening circles, stopped, opened the arch, waited without losing the checkpoint, and restarted together beyond the saved gate. Both mobile and desktop covered this regression.
+- All eight chapters were completed using movement/grab intentions only, without teleports or client writes to health/checkpoints.
+- Dedicated regressions check forward-facing carrying poses in four directions, physical grip alignment, gait settling, fractional damage, a 30-second rest on the opening circles, safe regrouping at every arch checkpoint, and respawn at the gate checkpoint after an accident.
+- All eight environments rendered in visual QA without JavaScript page errors.
+- Existing room privacy, private reconnect token, stale mobile socket, hostile origin, two-player authority and replay tests passed.
 
-- `npm run check`: **25 tests passed**, zero failures; production build succeeded.
-- `npm run test:e2e -- --trace off`: **4 tests passed locally**.
-- The same browser suite against the **public Render URL**: **4 tests passed** in Chromium desktop and iPhone 13 WebKit emulation, using independent player contexts / browser processes. No JavaScript page errors were observed.
-- The public run created and joined private rooms, readied both players, rendered actual 3D geometry, moved the shared heart, synchronized durability, reset the camera, opened help, paused/resumed, and detected disconnects.
-- Mobile checks covered native grab touches, joystick movement, a second pointer pressing Jump without clearing the joystick, pointer cancellation, release cleanup, and horizontal overflow.
-- GitHub Actions passed tests, production build, and all four browser cases on Ubuntu / Node 24: https://github.com/MoZien/Dont-Drop-Her/actions/runs/39150835701
-- New regressions check mouth bounds, portrait framing, camera direction during orbit, and a never-resolving browser audio resume promise.
-- Server tests complete **all five levels using movement/grab intentions only**, including cooperative switches, both checkpoints, pedestal placement, chapter votes, victory, and replay.
-- Authority checks reject client writes to health/checkpoints/completion, sanitize extreme inputs, isolate notes and reconnect tokens, reject unrelated WebSocket origins, and validate reconnect / stale mobile socket transfer.
+## Public release verification
 
-The earlier full campaign probe over the public Render connection also completed **all five chapters**, observing **7,695 matching authoritative snapshots** between the two clients. It exercised checkpoint recovery, chapter transitions and victory. The server physics and course definitions are unchanged by this client polish release.
+The previous version is already playable. Version 1.1 is being prepared for automatic deployment and a fresh public browser / full campaign probe. This section will be updated with observed public results before final delivery.
 
-## Deployment behavior and evidence limits
+## Deployment and limits
 
-- Auto-Deploy is configured as On Commit for `main`. The Render GitHub installation now includes selected access to `MoZien/Dont-Drop-Her`. The existing repository selection remains intact. Verify each update by matching the automatic deploy's source commit and `/health` with GitHub main; the configuration setting alone is not deployment evidence.
-- WebKit mobile emulation is not a physical iPhone Safari performance benchmark. No guaranteed 60 FPS or testing on two separate cellular networks is claimed.
-- Rooms and personalization are transient memory in one server process; restarting or deploying ends existing rooms.
-- Screenshots and QA-only tools are ignored under `artifacts/` and are not part of the public application.
+- Render's GitHub installation includes selected access to this repository. Auto-Deploy is On Commit for main; automatic deployment was previously verified with a new-commit trigger and matching health SHA.
+- Mobile WebKit emulation is not a physical iPhone Safari performance benchmark. No guaranteed 60 FPS or testing on separate cellular networks is claimed.
+- Rooms and personalization are transient in one process; deployment or restart ends existing rooms.
+- QA tools and screenshots under artifacts/ are ignored and are not served by production.

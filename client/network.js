@@ -45,7 +45,7 @@ export class Network extends EventTarget {
   input(value) { if (this.socket.connected && this.room?.phase === 'playing') this.socket.volatile.emit('game:input', value); }
   interpolate() {
     if (!this.states.length) return null;
-    const target = performance.now() - 100;
+    const target = performance.now() - 80;
     let a = this.states[0], b = a;
     for (const entry of this.states) { if (entry.arrived <= target) a = entry; else { b = entry; break; } b = entry; }
     const t = a === b ? 1 : Math.min(1, Math.max(0, (target - a.arrived) / (b.arrived - a.arrived)));
@@ -60,6 +60,7 @@ export class Network extends EventTarget {
     if (newest.events.some(e => e.type === 'respawn' && !a.state.events.some(x => x.id === e.id))) return newest;
     return { ...newest, time: a.state.time + (b.state.time - a.state.time) * t,
       players: newest.players.map((p, i) => ({ ...p, position: lerp(a.state.players[i].position, b.state.players[i].position),
+        velocity:lerp(a.state.players[i].velocity,b.state.players[i].velocity),
         yaw: angular(a.state.players[i].yaw, b.state.players[i].yaw) })),
       heart: { ...newest.heart, position: lerp(a.state.heart.position, b.state.heart.position), rotation: quaternion(a.state.heart.rotation, b.state.heart.rotation) } };
   }

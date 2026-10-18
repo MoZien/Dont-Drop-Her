@@ -20,6 +20,11 @@ export const ball = (mat, scale, position, parent) => mesh(sphere, mat, scale, p
 export const rounded = (mat, scale, position, parent) => mesh(box, mat, scale, position, parent);
 export const tube = (mat, scale, position, parent) => mesh(cylinder, mat, scale, position, parent);
 const limb = (mat, parent) => mesh(capsule, mat, [0.08, 0.21, 0.08], [0, 0, 0], parent);
+const boneBetween = (bone,start,end,radius=.075) => {
+  const direction=end.clone().sub(start);
+  bone.position.copy(start).lerp(end,.5);bone.scale.set(radius,Math.max(.01,direction.length()/3),radius);
+  bone.quaternion.setFromUnitVectors(new THREE.Vector3(0,1,0),direction.normalize());
+};
 
 export function heartGeometry() {
   const s = new THREE.Shape();
@@ -80,18 +85,20 @@ export class Character {
       ball(hair, [.12,.2,.15], [-.22,.39,.04], this.head).rotation.z=-.6;
     }
     this.legs = [-1,1].map(side => {
-      const g = new THREE.Group(); g.position.set(side*0.18, 0.53, 0); this.root.add(g);
-      limb(profile.appearance === 'girl' ? this.skin : material('#4a6670'), g).position.set(0,-.22,0);
-      rounded(this.white, [.22,.12,.29], [0,-.43,-.05], g);
-      rounded(material('#cc976f'), [.23,.05,.3], [0,-.49,-.05], g);
-      for(let i=0;i<2;i++) rounded(material('#e5d4bf'), [.14,.014,.02], [0,-.386,-.12+i*.045], g);
-      return g;
+      const g = new THREE.Group();g.position.set(side*.18,.55,0);this.root.add(g);
+      const trousers=profile.appearance==='girl'?this.skin:material('#4a6670');
+      const thigh=limb(trousers,g),shin=limb(trousers,g),foot=new THREE.Group();g.add(foot);
+      rounded(this.white,[.22,.12,.29],[0,0,-.05],foot);
+      rounded(material('#cc976f'),[.23,.04,.3],[0,-.065,-.05],foot);
+      for(let i=0;i<2;i++)rounded(material('#e5d4bf'),[.14,.014,.02],[0,.064,-.12+i*.045],foot);
+      return {group:g,side,thigh,shin,foot};
     });
     this.arms = [-1,1].map(side => {
       const sleeve = ball(outfit, [.16,.19,.16], [side*.38,1.0,0], this.root);
       return { side, sleeve, upper: limb(this.skin,this.root), lower:limb(this.skin,this.root), hand:ball(this.skin,[.1,.11,.1],[side*.5,.7,0],this.root) };
     });
     this.phase = Math.random()*6;
+    this.gait=this.phase;this.speed=0;this.facing=Math.PI;
     // Rigid facial and clothing details can share draw calls while the mouth,
     // eyebrows, head, arms and legs retain their independent animation.
     this.batchParts(this.head, new Set([this.mouth,...this.brows]));
@@ -112,33 +119,47 @@ export class Character {
       batch.computeBoundingSphere();parent.add(batch);
     }
   }
-  update(player, time, state, target = null, menu = false) {
-    const speed = menu ? 0 : Math.hypot(player.velocity.x, player.velocity.z);
+  update(player, time, state, target = null, menu = false, dt=1/60) {
+    const moving=!menu&&!state.paused&&state.status==='playing';
+    const wantedSpeed=moving?Math.hypot(player.velocity.x,player.velocity.z):0;
+    this.speed=THREE.MathUtils.damp(this.speed,wantedSpeed,12,dt);
+    const speed=this.speed;
+    this.gait+=Math.min(5,speed)*dt*6;
     this.group.position.set(player.position.x, player.position.y - 0.7, player.position.z);
-    this.root.rotation.y = menu ? -0.35 : player.grabbing ? -0.05 : player.yaw + Math.PI;
-    const swing = Math.sin(time*9+this.phase)*Math.min(speed*.15,.55);
-    this.legs.forEach((leg,i) => { leg.rotation.x = swing*(i ? -1:1); });
-    this.root.position.y = Math.abs(Math.sin(time*9+this.phase))*Math.min(.055,speed*.02);
-    this.root.rotation.z = state.status === 'broken' ? Math.sin(time*10)*.15 : state.balance*.07*Math.sin(time*6);
-    this.root.rotation.x = player.grounded===false ? player.position.y<.35?-.85:.14 : 0;
+    const facing=menu?-.35:state.status==='complete'?0:player.yaw+Math.PI;
+    const turn=Math.atan2(Math.sin(facing-this.facing),Math.cos(facing-this.facing));
+    this.facing+=turn*(1-Math.exp(-dt*12));this.root.rotation.y=this.facing;
+    const stride=Math.min(1,speed/2.6),grounded=player.grounded!==false;
+    this.legs.forEach((leg,i)=>{
+      const cycle=this.gait+i*Math.PI,step=Math.sin(cycle),lift=grounded?Math.max(0,Math.cos(cycle))*.13*stride:.1;
+      const ankle=new THREE.Vector3(0,-.47+lift,-step*.23*stride);
+      const knee=new THREE.Vector3(0,-.23+lift*.4,ankle.z*.5-.06-(grounded?0:.09));
+      boneBetween(leg.thigh,new THREE.Vector3(),knee);boneBetween(leg.shin,knee,ankle);
+      leg.foot.position.copy(ankle);leg.foot.rotation.x=grounded?Math.max(0,-step)*stride*.15:-.2;
+    });
+    const bob=grounded?Math.cos(this.gait*2)*.022*stride:0;
+    this.root.position.y=bob;
+    this.root.rotation.z=state.status==='broken'?Math.sin(time*10)*.15:Math.sin(this.gait)*.035*stride+state.balance*.05*Math.sin(time*6);
+    const lean=!grounded?(player.position.y<.35?-.85:.18):-Math.min(.11,speed*.025);
+    this.root.rotation.x=THREE.MathUtils.damp(this.root.rotation.x,lean,10,dt);
     this.head.rotation.z = Math.sin(time*1.8+this.phase)*.035;
     this.head.scale.y = Math.sin(time*.7+this.phase)>0.994 ? .96 : 1;
     this.mouth.scale.y = .028 * (state.balance > .55 ? 2.4 : 1);
     this.brows.forEach((b,i)=> b.rotation.z = state.balance > .55 ? (i ? -1:1)*.25 : (i ? 1:-1)*.08);
     if (state.status === 'complete') { this.root.position.y = Math.abs(Math.sin(time*5))*.2; this.root.rotation.y = Math.sin(time*2)*.12; }
     this.group.updateMatrixWorld(true);
+    const localTarget=target?this.root.worldToLocal(target.clone()):null;
+    const holdingSide=localTarget?.x>=0?1:-1;
     this.arms.forEach(arm => {
       const shoulder = new THREE.Vector3(arm.side*.39,1.01,0);
-      let hand = new THREE.Vector3(arm.side*.48,.63,-.05);
-      if (player.grabbing && target && arm.side === (player.position.x < state.heart.position.x ? 1 : -1)) {
-        hand = this.root.worldToLocal(target.clone());
+      let hand = new THREE.Vector3(arm.side*.48,.66,-.05+Math.sin(this.gait+(arm.side===1?Math.PI:0))*.17*stride);
+      if (player.grabbing && localTarget && arm.side === holdingSide) {
+        hand = localTarget.clone();
       } else if(state.status === 'complete') hand.set(arm.side*.64,1.57,0);
-      const delta = hand.clone().sub(shoulder); if(delta.length()>.86) hand.copy(shoulder).add(delta.setLength(.86));
+      const delta = hand.clone().sub(shoulder); if(delta.length()>.98) hand.copy(shoulder).add(delta.setLength(.98));
       const elbow = shoulder.clone().lerp(hand,.5); elbow.z-=.11;
       for(const [part,start,end] of [[arm.upper,shoulder,elbow],[arm.lower,elbow,hand]]) {
-        part.position.copy(start).lerp(end,.5); const direction=end.clone().sub(start);
-        part.scale.set(.08,Math.max(.06,direction.length()/3),.08);
-        part.quaternion.setFromUnitVectors(new THREE.Vector3(0,1,0),direction.normalize());
+        boneBetween(part,start,end,.08);
       }
       arm.hand.position.copy(hand);
     });

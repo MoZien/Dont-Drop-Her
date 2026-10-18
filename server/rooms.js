@@ -1,6 +1,7 @@
 import { randomBytes, timingSafeEqual } from 'node:crypto';
 import { Simulation } from './simulation.js';
 import { idleInput, sanitizeInput } from '../shared/math.js';
+import { LEVELS } from '../shared/levels.js';
 
 const codeAlphabet = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
 const colorPalette = ['#ee789a', '#71bfc1', '#a994dc', '#edb66f', '#88b986', '#699de0'];
@@ -71,6 +72,7 @@ export class Rooms {
       p.vote = true;
       if (room.players.length === 2 && room.players.every(p => p.vote && p.connected)) {
         const next = room.phase === 'victory' ? 0 : room.sim.levelIndex + 1;
+        if(room.phase==='victory')room.results=[];
         room.sim.dispose(); room.sim = new Simulation(next);
         room.players.forEach(p => { p.vote = false; p.restartVote = false; }); room.phase = 'intro'; room.deadline = this.now() + 6500;
       }
@@ -107,7 +109,7 @@ export class Rooms {
     let code;
     do { code = Array.from(randomBytes(6), n => codeAlphabet[n % codeAlphabet.length]).join(''); } while (this.rooms.has(code));
     const p = this.newPlayer(socket, data.profile, 0);
-    const room = { code, players: [p], story: personalize(data.story), phase: 'lobby', sim: null, activity: this.now(), created: this.now() };
+    const room = { code, players: [p], story: personalize(data.story), results:[], phase: 'lobby', sim: null, activity: this.now(), created: this.now() };
     this.rooms.set(code, room); this.bind(socket, room, p); this.broadcast(room); return this.result(room, p);
   }
   join(socket, data) {
@@ -141,7 +143,7 @@ export class Rooms {
     return this.result(room, p);
   }
   publicRoom(room) {
-    return { code: room.code, phase: room.phase, story: room.story, level: room.sim?.levelIndex || 0,
+    return { code: room.code, phase: room.phase, story: room.story, results:room.results, level: room.sim?.levelIndex || 0,
       countdown: Math.max(0, Math.ceil(((room.deadline || 0) - this.now()) / 1000)), pausedBy: room.pausedBy,
       players: room.players.map(p => ({ index: p.index, profile: p.profile, connected: p.connected, ready: p.ready,
         vote: p.vote, restartVote: p.restartVote })),
@@ -179,8 +181,9 @@ export class Rooms {
       if (room.phase === 'playing') {
         room.sim.step();
         if (room.sim.status === 'complete') {
+          room.results.push({level:room.sim.levelIndex,time:room.sim.time,deaths:room.sim.deaths,health:Math.round(room.sim.health)});
           this.io.to(room.code).emit('game:state', room.sim.snapshot()); room.lastTickSent = room.sim.tick;
-          room.phase = room.sim.levelIndex === 4 ? 'victory' : 'complete'; this.broadcast(room);
+          room.phase = room.sim.levelIndex === LEVELS.length-1 ? 'victory' : 'complete'; this.broadcast(room);
         }
       }
       if (room.sim && room.sim.tick % 3 === 0 && room.lastTickSent !== room.sim.tick) {

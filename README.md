@@ -1,6 +1,6 @@
 # DON'T DROP HER!
 
-**A little teamwork. A lot of heart.** A two-player online 3D cooperative adventure for desktop and mobile browsers. Each person carries one handle of the same fragile glass heart. Five original worlds, two people, and plenty of opportunities to blame gravity.
+**A little teamwork. A lot of heart.** A two-player online 3D cooperative adventure for desktop and mobile browsers. Each person carries one handle of the same fragile glass heart. Eight original worlds, two people, and plenty of opportunities to blame gravity.
 
 This is an independent project. It does not share source, room state, or hosting with HIPPO DUO / Toge-Game.
 
@@ -12,8 +12,8 @@ This is an independent project. It does not share source, room state, or hosting
 2. Choose **Start your story**, enter your name, and choose an appearance and color. The host can add an anniversary and a private note.
 3. Copy the room invitation to your partner. They can use that link or enter the six-character room code.
 4. Both people choose **I'm ready**. The adventure begins after a countdown and a short chapter introduction.
-5. Move together. Stand on the two glowing circles to open the cooperative arch. Golden checkpoints repair the heart and save your current run.
-6. Center the heart on the pedestal and both hold Balance to place it. Both players choose the next chapter. Finish all five to reveal your personal message and celebration.
+5. Move together. Stand on the two glowing circles to open the cooperative arch and save the first checkpoint. Golden checkpoints repair the heart and save your current run.
+6. Center the heart on the pedestal and both hold Balance to place it. Both players choose the next chapter. Finish all eight to reveal your personal message and celebration.
 
 Exactly two online players are required. There is no bot or solo completion route.
 
@@ -30,9 +30,9 @@ Exactly two online players are required. There is no bot or solo completion rout
 
 The golden ring marks your character. Movement follows the camera you actually see, including while turning it. Use the camera button to restore the forward view.
 
-Hold Balance **together** to calm and slowly repair the heart. Jump at the same time. A partner on solid ground can help pull a briefly dangling player back when both hold Balance. Disconnecting pauses the shared game and reserves the player for two minutes. Reopen the same tab to reconnect; a new unrelated tab cannot take that identity without the private token. A valid token replaces a stale mobile socket without resetting the game. Pausing affects both players. Restarting a checkpoint and advancing chapters require both players' votes.
+Hold Balance **together** while resting on solid ground to calm and slowly repair the heart. Jump at the same time. A partner on solid ground can help pull a briefly dangling player back when both hold Balance. Disconnecting pauses the shared game and reserves the player for two minutes. Reopen the same tab to reconnect; a new unrelated tab cannot take that identity without the private token. A valid token replaces a stale mobile socket without resetting the game. Pausing affects both players. Restarting a checkpoint and advancing chapters require both players' votes.
 
-## Five chapters
+## Eight chapters
 
 | Chapter | Obstacles and setting |
 | --- | --- |
@@ -40,9 +40,12 @@ Hold Balance **together** to calm and slowly repair the heart. Jump at the same 
 | Crazy Kitchen | Giant mugs and cookware, rolling pin, swinging spoon, rotating turntable, moving sponge, slippery puddles, temporarily heavy heart |
 | Broken Bridge | Clouds, missing planks, wind, swaying bridges, collapsing boards, swinging bell |
 | Ice of Love | Ice friction, snowballs, drifting ice, frost crystals, frozen bridges, gusts |
-| Heart Castle | Lit towers, a rotating platform and trap, magic lift, pendulum, timed gate, final pedestal |
+| Heart Castle | Lit towers, rotating traps, magic lift, pendulum and a timed gate |
+| Clockwork Carnival | Ferris wheels, tents, sideways conveyors, zigzag belts, rotating carousels, brass timing gate |
+| Volcano Vows | Lava, basalt columns, volcanoes, timed steam vents, collapsing cooled stones, moving ferry and ember boulders |
+| Starlight Observatory | Telescopes, ringed planets, drifting star bridges, offset light gates, a rotating stellar arm and the final constellation pedestal |
 
-Every chapter has a cooperative gate, two checkpoints, and a finish. Obstacles are driven by the authoritative simulation clock. Collapsing boards reset on respawn. Damage depends on impact force, excessive handle tension, severe tilt, and falling; small contacts are filtered. The 70 / 40 / 15 health stages expose progressively larger cracks. A break triggers brief physics slow motion, glass shards, a funny message, and a shared respawn.
+Every chapter has a cooperative gate, three checkpoints, and a finish. Opening the arch saves the first checkpoint immediately: a later accident returns both players beyond that gate. A visible charge meter and per-player circle indicators make the opening sequence clear. Later chapters combine timing windows, jump gaps, moving surfaces and wind; the chapter map previews their difficulty. Obstacles are driven by the authoritative simulation clock. Collapsing boards reset on respawn. Damage depends on impact force, excessive handle tension, severe tilt, and falling; small contacts are filtered. The 70 / 40 / 15 health stages expose progressively larger cracks. A break triggers brief physics slow motion, glass shards, a funny message, and a shared respawn.
 
 ## Requirements and local development
 
@@ -68,7 +71,7 @@ npx playwright install chromium webkit
 npm run test:e2e
 ```
 
-The browser suite uses two independent contexts, tests room creation, invitation links, readiness, movement, shared health, pause, disconnect, customization, touch controls, and responsive layout. WebKit uses an iPhone 13 viewport and touch emulation. This is not a physical iPhone hardware benchmark. The server suite also completes all five courses using only movement/grab inputs, tests reconnect reservations and room privacy, and checks that clients cannot write health or game progress.
+The browser suite uses two independent contexts, tests room creation, invitation links, readiness, movement, shared health, pause, disconnect, customization, touch controls, and responsive layout. WebKit uses an iPhone 13 viewport and touch emulation. This is not a physical iPhone hardware benchmark. The server suite also completes all eight courses using only movement/grab inputs, tests reconnect reservations and room privacy, and checks that clients cannot write health or game progress.
 
 ## Architecture
 
@@ -99,3 +102,7 @@ The artwork is an original stylized procedural scene; it does not include motion
 ## License
 
 Original source and assets: [MIT](LICENSE). Third-party packages retain their own licenses.
+
+## Version 1.1 gameplay upgrade
+
+Characters now face travel, turn smoothly, bend their knees, plant and lift their feet, and use the appropriate hand for the shared handle. Gait speed follows movement and settles at rest. Server snapshots interpolate movement and velocity together. Resting on the opening circles stabilizes the heart; short occupancy interruptions no longer erase the gate meter. Sustained strain now accumulates fractional damage instead of dropping it, and walking through danger no longer continuously heals the heart. The final screen records all eight chapter results, total time and shared falls.

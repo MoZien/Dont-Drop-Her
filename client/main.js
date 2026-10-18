@@ -25,7 +25,7 @@ try {
     requestAnimationFrame(loop);const dt=Math.min(.1,(now-last)/1000);last=now;
     const state=network.interpolate();const phase=network.room?.phase;
     const menu=!phase||['lobby','countdown'].includes(phase)||ui.screen==='setup';
-    world.render(menu?null:state,dt,now/1000,menu);
+    world.render(menu?null:state&&phase!=='playing'?{...state,paused:true}:state,dt,now/1000,menu);
     if(phase==='victory'&&now-lastCelebration>2000){lastCelebration=now;world.particles.burst(world.heart.group.position,'complete');}
     audio.update(phase==='playing'?state:null,now);ui.tick();
   };

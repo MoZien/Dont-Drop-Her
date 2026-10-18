@@ -9,6 +9,7 @@ import { Character } from '../client/render/models.js';
 import { AudioSystem } from '../client/audio.js';
 import { profile, personalize } from '../server/rooms.js';
 import { driveCourse } from './driver.js';
+import { courseInputs } from './course-pilot.js';
 
 before(async()=>initPhysics());
 const run = (sim, steps, inputs = [idleInput(),idleInput()]) => {for(let i=0;i<steps;i++){inputs.forEach((input,p)=>sim.input(p,input));sim.step();}};
@@ -61,6 +62,47 @@ test('character facial reactions retain the small mouth geometry without vertica
     character.dispose();
   }
 });
+test('both carrying characters face their direction of travel and reach the physical handle',()=>{
+  for(const side of[-1,1])for(const yaw of[0,Math.PI/2,Math.PI,-Math.PI/2]){
+    const c=new Character({appearance:side<0?'boy':'girl',color:'#71bfc1'});
+    const p={position:{x:side*1.12,y:.7,z:2},velocity:{x:Math.sin(yaw)*2,y:0,z:Math.cos(yaw)*2},grabbing:true,grounded:true,yaw};
+    const state={status:'playing',balance:0,heart:{position:{x:0,y:1.72,z:2}}},handle=new THREE.Vector3(side*.94,1.72,2);
+    for(let i=0;i<120;i++)c.update(p,i/60,state,handle,false,1/60);
+    c.group.updateMatrixWorld(true);
+    const facing=new THREE.Vector3(0,0,-1).applyQuaternion(c.root.quaternion);facing.y=0;facing.normalize();
+    assert.ok(facing.dot(new THREE.Vector3(Math.sin(yaw),0,Math.cos(yaw)))>.99);
+    assert.ok(Math.min(...c.arms.map(a=>a.hand.getWorldPosition(new THREE.Vector3()).distanceTo(handle)))<.04);
+    c.dispose();
+  }
+});
+test('walking uses bent knees, smooth turning and a gait that settles when movement stops',()=>{
+  const c=new Character({appearance:'boy',color:'#71bfc1'}),state={status:'playing',balance:0,heart:{position:{x:0,y:1.72,z:2}}};
+  const p={position:{x:-1.12,y:.7,z:2},velocity:{x:3,y:0,z:0},grabbing:false,grounded:true,yaw:Math.PI/2};
+  const before=c.facing;c.update(p,0,state,null,false,1/60);assert.ok(Math.abs(c.facing-before)<.4);
+  for(let i=0;i<60;i++)c.update(p,i/60,state,null,false,1/60);
+  assert.ok(c.legs.some(l=>Math.abs(l.shin.quaternion.x-l.thigh.quaternion.x)>.02));
+  p.velocity={x:0,y:0,z:0};for(let i=0;i<120;i++)c.update(p,2+i/60,state,null,false,1/60);
+  assert.ok(c.speed<.001);c.dispose();
+});
+test('opening the cooperative arch saves a checkpoint and standing there does not reset the room',()=>{
+  const s=new Simulation(),memory={};
+  for(let tick=0;tick<800&&!s.gateOpen;tick++){courseInputs(s.snapshot(),s.level,memory).forEach((v,i)=>s.input(i,v));s.step();}
+  assert.ok(s.gateOpen);assert.equal(s.checkpoint,1);run(s,1800);
+  assert.equal(s.deaths,0);assert.equal(s.health,100);assert.ok(s.players.every(p=>Math.abs(p.body.translation().z-11.5)<1));
+  s.damage(100,'regression: an accident after opening the arch');run(s,220);
+  assert.equal(s.status,'playing');assert.equal(s.checkpoint,1);assert.ok(s.gateOpen);
+  assert.ok(Math.abs(s.heart.translation().z-s.level.checkpoints[0])<.3);s.dispose();
+});
+test('fractional sustained strain accumulates instead of being silently discarded',()=>{
+  const s=new Simulation();for(let i=0;i<200;i++)s.damage(.05,'sustained strain');
+  assert.ok(Math.abs(s.health-90)<1e-6);s.damage(NaN,'invalid');s.damage(Infinity,'invalid');assert.ok(Number.isFinite(s.health));s.dispose();
+});
+test('every arch checkpoint respawns onto a safe place to stand and regroup',()=>{
+  for(let i=0;i<LEVELS.length;i++){
+    const s=new Simulation(i);s.checkpoint=1;s.gateOpen=true;s.resetAtCheckpoint();run(s,600);
+    assert.equal(s.deaths,0,LEVELS[i].title);assert.ok(s.players.every(p=>p.grounded),LEVELS[i].title);assert.ok(s.health>99,LEVELS[i].title);s.dispose();
+  }
+});
 test('an unresolved browser audio-resume promise never blocks starting gameplay',()=>{
   const previousWindow=globalThis.window,previousStorage=Object.getOwnPropertyDescriptor(globalThis,'localStorage');let audio;
   Object.defineProperty(globalThis,'localStorage',{configurable:true,value:{getItem:()=>null,setItem:()=>{}}});
@@ -79,8 +121,8 @@ test('personal data has bounded text, approved appearance, and color values',()=
   assert.equal(personalize({message:'a'.repeat(400),anniversary:'evil'}).message.length,240);
   assert.equal(personalize({anniversary:'evil'}).anniversary,'');
 });
-test('the shared heart remains healthy while both carriers stand still in all five worlds',()=>{
-  for(let level=0;level<5;level++){const s=new Simulation(level);run(s,360);assert.equal(s.health,100);assert.ok(s.heart.translation().y>1.5);assert.equal(s.status,'playing');s.dispose();}
+test('the shared heart remains healthy while both carriers stand still in all eight worlds',()=>{
+  for(let level=0;level<LEVELS.length;level++){const s=new Simulation(level);run(s,360);assert.equal(s.health,100);assert.ok(s.heart.translation().y>1.5);assert.equal(s.status,'playing');s.dispose();}
 });
 test('coordinated movement carries one heart and excessive pulling creates instability',()=>{
   const s=new Simulation();run(s,240,[{x:0,z:1,balance:true,jump:false},{x:0,z:1,balance:true,jump:false}]);
@@ -98,7 +140,7 @@ test('a grounded partner can rescue a briefly dangling carrier when both balance
 });
 test('releasing both handles causes a fall and break with a full checkpoint respawn',()=>{
   const s=new Simulation();s.grab(0);s.grab(1);run(s,300);assert.ok(s.deaths>0||s.health<100);
-  s.checkpoint=1;s.damage(100,'test impact');assert.equal(s.status,'broken');run(s,220);assert.equal(s.status,'playing');assert.equal(s.health,100);assert.ok(Math.abs(s.heart.translation().z-24)<.3);assert.ok(s.players.every(p=>p.grabbing));s.dispose();
+  s.checkpoint=2;s.damage(100,'test impact');assert.equal(s.status,'broken');run(s,220);assert.equal(s.status,'playing');assert.equal(s.health,100);assert.ok(Math.abs(s.heart.translation().z-24)<.3);assert.ok(s.players.every(p=>p.grabbing));s.dispose();
 });
 test('completion requires both players holding the heart on the finish platform',()=>{
   const s=new Simulation();s.gateOpen=true;

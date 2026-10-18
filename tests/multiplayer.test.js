@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import { io } from 'socket.io-client';
 import { createApp } from '../server/app.js';
 import { driveCourse } from './driver.js';
+import { LEVELS } from '../shared/levels.js';
 
 const event = (socket,name,predicate=()=>true)=>new Promise((resolve,reject)=>{
   const timer=setTimeout(()=>{socket.off(name,handler);reject(new Error(`Timed out waiting for ${name}`));},5000);
@@ -30,13 +31,14 @@ test('two independent clients create, join, ready, synchronize, and advance with
     const room=f.server.rooms.rooms.get(created.code);assert.equal(room.phase,'playing');
     const sa=event(a,'game:state',s=>s.status==='complete'),sb=event(b,'game:state',s=>s.status==='complete');
     const ra=driveCourse(room.sim);assert.ok(ra.complete);f.server.rooms.step();
-    const [stateA,stateB]=await Promise.all([sa,sb]);assert.deepEqual(stateA,stateB);assert.equal(stateA.checkpoint,2);assert.equal(stateA.status,'complete');
+    const [stateA,stateB]=await Promise.all([sa,sb]);assert.deepEqual(stateA,stateB);assert.equal(stateA.checkpoint,LEVELS[0].checkpoints.length);assert.equal(stateA.status,'complete');
     await request(a,'game:continue');assert.equal(room.phase,'complete');await request(b,'game:continue');assert.equal(room.phase,'intro');assert.equal(room.sim.levelIndex,1);
-    for(let level=1;level<5;level++){
-      f.advance(6501);assert.ok(driveCourse(room.sim).complete);f.server.rooms.step();assert.equal(room.phase,level===4?'victory':'complete');
-      if(level<4){await request(a,'game:continue');await request(b,'game:continue');}
+    for(let level=1;level<LEVELS.length;level++){
+      f.advance(6501);assert.ok(driveCourse(room.sim).complete);f.server.rooms.step();assert.equal(room.phase,level===LEVELS.length-1?'victory':'complete');
+      if(level<LEVELS.length-1){await request(a,'game:continue');await request(b,'game:continue');}
     }
-    assert.equal(room.story.message,'Our private note');await request(a,'game:continue');await request(b,'game:continue');assert.equal(room.sim.levelIndex,0);assert.equal(room.phase,'intro');
+    assert.equal(room.results.length,LEVELS.length);assert.ok(room.results.every(r=>r.time>0));
+    assert.equal(room.story.message,'Our private note');await request(a,'game:continue');await request(b,'game:continue');assert.equal(room.sim.levelIndex,0);assert.equal(room.phase,'intro');assert.deepEqual(room.results,[]);
   } finally {await f.close();}
 });
 
