@@ -11,6 +11,7 @@ Render service: `srv-db72orc9v7es73a9kurg`, My Workspace, Frankfurt, Free, one i
 - Eight distinct chapters. New chapters: Clockwork Carnival, Volcano Vows, Starlight Observatory.
 - Stronger garden hazards, narrower moving decks, conveyors, offset paths, timed steam vents, light gates and drifting star bridges.
 - Carrying characters face travel instead of facing the camera. Turning is smoothed; feet lift and knees bend; free arms swing and the carrying arm follows the actual physical handle in character-local space.
+- Decorative arches behind the players stop blocking the camera while the closed physical gate stays visible. Arch batches preserve their own world position.
 - The first arch now saves checkpoint 1 of 3 immediately. Standing on the circles stabilizes the heart. Circle occupancy has hysteresis and brief interruptions retain charge. The HUD exposes both circle states, a charge meter, saved progress and red/green timing hints.
 - Sustained strain accumulates fractional damage. Healing requires both carriers to rest and balance on solid ground, so holding Balance while walking through hazards does not continuously erase damage.
 - Ground support respects surface tilt and the capsule's supported edge. Moving platforms carry players with their actual point velocity.
@@ -18,7 +19,7 @@ Render service: `srv-db72orc9v7es73a9kurg`, My Workspace, Frankfurt, Free, one i
 
 ## Completed local verification
 
-- `npm run check`: **33 tests passed**, zero failures, production build succeeded.
+- `npm run check`: **34 tests passed**, zero failures, production build succeeded.
 - `npm run test:e2e -- --trace off`: **4 tests passed**, Chromium desktop and iPhone 13 WebKit emulation.
 - Browser clients walked onto the opening circles, stopped, opened the arch, waited without losing the checkpoint, and restarted together beyond the saved gate. Both mobile and desktop covered this regression.
 - All eight chapters were completed using movement/grab intentions only, without teleports or client writes to health/checkpoints.
@@ -28,7 +29,7 @@ Render service: `srv-db72orc9v7es73a9kurg`, My Workspace, Frankfurt, Free, one i
 
 ## Public release verification
 
-The previous version is already playable. Version 1.1 is being prepared for automatic deployment and a fresh public browser / full campaign probe. This section will be updated with observed public results before final delivery.
+Version 1.1 reached Live through automatic deployment. The public Chromium / iPhone WebKit suite passed all four cases, including opening the first arch, waiting without losing progress, and restarting at its saved checkpoint. The full eight-chapter public campaign probe is pending; this section will be updated with its observed result before final delivery.
 
 ## Deployment and limits
 

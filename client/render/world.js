@@ -54,6 +54,7 @@ export class World {
     const mine=state.players[this.localPlayer];this.playerMarker.visible=!menu&&!!mine?.grounded;
     if(mine)this.playerMarker.position.set(mine.position.x,mine.position.y-.68,mine.position.z);
     this.environment.update(state,time,dt);this.particles.update(dt,time);this.rig.update(state,dt,menu);
+    this.environment.updateSightlines(this.camera,state,menu);
     const z=state.heart.position.z;this.sun.position.set(-8,14,z-6);this.sun.target.position.set(0,0,z);
     this.renderer.render(this.scene,this.camera);
     // A passive rendering marker lets end-to-end tests distinguish the actual

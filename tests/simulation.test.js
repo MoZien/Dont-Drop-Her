@@ -6,6 +6,7 @@ import { idleInput, sanitizeInput, cameraMovement } from '../shared/math.js';
 import * as THREE from 'three';
 import { CameraRig } from '../client/camera.js';
 import { Character } from '../client/render/models.js';
+import { Environment } from '../client/render/environment.js';
 import { AudioSystem } from '../client/audio.js';
 import { profile, personalize } from '../server/rooms.js';
 import { driveCourse } from './driver.js';
@@ -102,6 +103,14 @@ test('every arch checkpoint respawns onto a safe place to stand and regroup',()=
     const s=new Simulation(i);s.checkpoint=1;s.gateOpen=true;s.resetAtCheckpoint();run(s,600);
     assert.equal(s.deaths,0,LEVELS[i].title);assert.ok(s.players.every(p=>p.grounded),LEVELS[i].title);assert.ok(s.health>99,LEVELS[i].title);s.dispose();
   }
+});
+test('batched arches retain their location and decorations behind the players cannot block the camera',()=>{
+  const env=new Environment(new THREE.Scene(),0),spawn=env.arches[0];
+  const bounds=new THREE.Box3().setFromObject(spawn);assert.ok(Math.abs(bounds.getCenter(new THREE.Vector3()).z-7)<.5);
+  env.updateSightlines({position:{z:2}},{heart:{position:{z:11.5}},gateOpen:true},false);
+  assert.equal(spawn.visible,false);assert.equal(env.gate.visible,true);
+  env.updateSightlines({position:{z:8}},{heart:{position:{z:18}},gateOpen:false},false);assert.equal(env.gate.visible,true);
+  env.updateSightlines({position:{z:2}},{heart:{position:{z:11.5}},gateOpen:true},true);assert.ok(env.arches.every(a=>a.visible));env.dispose();
 });
 test('an unresolved browser audio-resume promise never blocks starting gameplay',()=>{
   const previousWindow=globalThis.window,previousStorage=Object.getOwnPropertyDescriptor(globalThis,'localStorage');let audio;

@@ -18,7 +18,7 @@ const line = (points,color,parent,width=.035) => {
 export class Environment {
   constructor(scene,index=0) {
     this.scene=scene;this.level=LEVELS[index];this.index=index;this.group=new THREE.Group();scene.add(this.group);
-    this.dynamic=[];this.pads=[];this.flags=[];this.bobbing=[];this.lanterns=[];this.belts=[];this.animatedProps=[];this.signals=[];
+    this.dynamic=[];this.pads=[];this.flags=[];this.bobbing=[];this.lanterns=[];this.belts=[];this.animatedProps=[];this.signals=[];this.arches=[];
     const theme=this.level.theme;scene.background=new THREE.Color(theme.sky);scene.fog=new THREE.Fog(theme.fog,25,85);
     const path=material(theme.path,{roughness:index===3?.25:.85,metalness:index===3?.12:0});
     const edge=material(index===0?'#b99168':index===3?'#7dbacc':theme.dark);
@@ -166,10 +166,12 @@ export class Environment {
     for(let i=0;i<180;i++)motePositions.set([(rand()-.5)*24,rand()*5+.3,rand()*75-5],i*3);
     const geometry=new THREE.BufferGeometry();geometry.setAttribute('position',new THREE.BufferAttribute(motePositions,3));
     this.motes=new THREE.Points(geometry,new THREE.PointsMaterial({color:index===3?'#ffffff':index===6?'#ffc073':'#fff5ca',size:index===6?.09:.06,transparent:true,opacity:.6,depthWrite:false}));this.group.add(this.motes);
+    this.arches.forEach(arch=>this.batchStatic(arch,new Set([this.gateBars])));
     this.batchStatic();
   }
   arch(x,y,z,color,flowers) {
     const g=new THREE.Group();g.position.set(x,y,z);
+    this.arches.push(g);
     const stone=material(this.index===4?'#c5a4cf':'#ebd7b0');
     for(const side of[-1,1]) { tube(stone,[.13,2.7,.13],[side*2.25,1.3,0],g);rounded(stone,[.6,.22,.6],[side*2.25,.1,0],g); }
     line([[-2.25,2.65,0],[-1.9,3.3,0],[0,3.9,0],[1.9,3.3,0],[2.25,2.65,0]],this.index===4?'#dbc195':'#dec5a2',g,.12);
@@ -284,14 +286,15 @@ export class Environment {
     smallHeart('#ffe4bd',.25,g).position.set(-.4,.1,-1.55);
     this.animatedProps.push({group:g,axis:'y',speed:.05});
   }
-  batchStatic() {
+  batchStatic(root=this.group,exclusions=null) {
     // Original modeled details share geometries and materials, so hundreds of
     // leaves, planks and petals become a handful of GPU instanced draw calls.
-    const excluded=new Set([...this.dynamic.map(d=>d.group),this.gateBars,...this.bobbing,...this.flags.map(f=>f.flag),...this.belts.map(b=>b.group),...this.animatedProps.map(p=>p.group)]);
-    const groups=new Map();this.group.updateMatrixWorld(true);
-    this.group.traverse(object=>{
+    const excluded=exclusions||new Set([...this.dynamic.map(d=>d.group),this.gateBars,...this.bobbing,...this.flags.map(f=>f.flag),...this.belts.map(b=>b.group),...this.animatedProps.map(p=>p.group),...this.arches]);
+    const groups=new Map();root.updateWorldMatrix(true,true);
+    const inverseRoot=new THREE.Matrix4().copy(root.matrixWorld).invert();
+    root.traverse(object=>{
       if(!object.isMesh||!object.geometry.userData.shared||!object.material.userData.shared)return;
-      for(let ancestor=object;ancestor&&ancestor!==this.group;ancestor=ancestor.parent)if(excluded.has(ancestor))return;
+      for(let ancestor=object;ancestor&&ancestor!==root;ancestor=ancestor.parent)if(excluded.has(ancestor))return;
       const key=object.geometry.uuid+object.material.uuid;
       if(!groups.has(key))groups.set(key,[]);groups.get(key).push(object);
     });
@@ -301,11 +304,18 @@ export class Environment {
       const instances=new THREE.InstancedMesh(objects[0].geometry,objects[0].material,count);instances.castShadow=true;instances.receiveShadow=true;
       let index=0;
       for(const object of objects) {
-        if(object.isInstancedMesh){for(let i=0;i<object.count;i++){object.getMatrixAt(i,matrix);worldMatrix.copy(object.matrixWorld).multiply(matrix);instances.setMatrixAt(index++,worldMatrix);}object.dispose();}
-        else instances.setMatrixAt(index++,object.matrixWorld);
+        if(object.isInstancedMesh){for(let i=0;i<object.count;i++){object.getMatrixAt(i,matrix);worldMatrix.copy(inverseRoot).multiply(object.matrixWorld).multiply(matrix);instances.setMatrixAt(index++,worldMatrix);}object.dispose();}
+        else {worldMatrix.copy(inverseRoot).multiply(object.matrixWorld);instances.setMatrixAt(index++,worldMatrix);}
         object.removeFromParent();
       }
-      instances.computeBoundingSphere();instances.instanceMatrix.needsUpdate=true;this.group.add(instances);
+      instances.computeBoundingSphere();instances.instanceMatrix.needsUpdate=true;root.add(instances);
+    }
+  }
+  updateSightlines(camera,state,menu) {
+    for(const arch of this.arches){
+      const z=arch.position.z,heartZ=state.heart.position.z;
+      const between=(z-heartZ)*(z-camera.position.z)<0;
+      arch.visible=menu||!between||Math.abs(z-heartZ)<1.4||(arch===this.gate&&!state.gateOpen);
     }
   }
   update(state,time,dt) {
