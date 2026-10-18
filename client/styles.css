@@ -24,3 +24,11 @@ body[data-level="4"] .topbar .brand,body[data-level="4"] .topbar .online-label{c
  .hud-level strong{font-size:18px}.heart-meter{width:220px;padding:8px 12px}
  .objective{top:130px}.partner-status{max-width:120px}
 }
+@media(max-width:650px){
+ input,textarea,select{font-size:16px}
+ .in-game .topbar{height:calc(52px + env(safe-area-inset-top));padding-top:env(safe-area-inset-top)}
+ .hud{top:calc(58px + env(safe-area-inset-top))}
+ .objective{top:calc(180px + env(safe-area-inset-top))}
+ .panel-layout{padding-top:calc(88px + env(safe-area-inset-top))}
+ .center-layout:not(.overlay-layout){top:calc(80px + env(safe-area-inset-top))}
+}

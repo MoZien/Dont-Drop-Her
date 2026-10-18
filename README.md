@@ -6,6 +6,8 @@ This is an independent project. It does not share source, room state, or hosting
 
 ## Play
 
+**[Open the live game](https://dont-drop-her.onrender.com)** · [GitHub source](https://github.com/MoZien/Dont-Drop-Her)
+
 1. Open the game in a current Safari, Chrome, Edge, or Firefox browser.
 2. Choose **Start your story**, enter your name, and choose an appearance and color. The host can add an anniversary and a private note.
 3. Copy the room invitation to your partner. They can use that link or enter the six-character room code.
@@ -23,7 +25,10 @@ Exactly two online players are required. There is no bot or solo completion rout
 | Hold Shift: stabilize / brake | Hold Balance |
 | Drag mouse: orbit camera | Drag the world: orbit camera |
 | Mouse wheel: zoom | Comfortable automatic camera distance |
+| R / camera button: recenter | Camera button: recenter |
 | Escape / pause button | Pause button |
+
+The golden ring marks your character. Movement follows the camera you actually see, including while turning it. Use the camera button to restore the forward view.
 
 Hold Balance **together** to calm and slowly repair the heart. Jump at the same time. A partner on solid ground can help pull a briefly dangling player back when both hold Balance. Disconnecting pauses the shared game and reserves the player for two minutes. Reopen the same tab to reconnect; a new unrelated tab cannot take that identity without the private token. A valid token replaces a stale mobile socket without resetting the game. Pausing affects both players. Restarting a checkpoint and advancing chapters require both players' votes.
 

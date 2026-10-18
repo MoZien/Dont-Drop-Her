@@ -2,6 +2,10 @@
 
 Do not edit or reconnect the existing Toge-Game / HIPPO DUO repository or Render services.
 
+## Current service
+
+The game is published at https://dont-drop-her.onrender.com from https://github.com/MoZien/Dont-Drop-Her. The independent Render service is `srv-db72orc9v7es73a9kurg` in My Workspace. See `VERIFICATION.md` for actual release checks and the GitHub installation access needed for automatic updates.
+
 ## GitHub
 
 The intended new repository is `MoZien/Dont-Drop-Her`. Creating repositories and pushing files requires GitHub authentication with repository creation and contents-write permission, plus permission to create a workflow file. A connected read/PR-only integration is insufficient for these operations.
